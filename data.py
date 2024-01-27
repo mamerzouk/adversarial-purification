@@ -1,7 +1,7 @@
 import pandas as pd
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
-def preprocess_unsw(train_path="./UNSW_NB15_testing-set.csv", test_path="./UNSW_NB15_training-set.csv"):
+def preprocess_unsw(train_path="./UNSW-NB15/UNSW_NB15_testing-set.csv", test_path="./UNSW-NB15/UNSW_NB15_training-set.csv"):
     # import the dataset into pandas DataFrames
     df_training = pd.read_csv(train_path)
     df_testing = pd.read_csv(test_path)
