@@ -164,10 +164,11 @@ def main(noise_steps, lr, epochs, device, hidden_dim, retrain=False):
     print(hidden_dim)
     print(noise_steps)
 
-    x_train, y_train, x_test, y_test = preprocess_unsw()
+    x_train, _, _, _, = preprocess_unsw()
     # Convert the data to PyTorch Tensor in the GPU
-    x_train, y_train = torch.Tensor(x_train).to(device), torch.Tensor(y_train).long().to(device)
-    x_test, y_test = torch.Tensor(x_test).to(device), torch.Tensor(y_test).long().to(device)
+    #x_train, y_train = torch.Tensor(x_train).to(device), torch.Tensor(y_train).long().to(device)
+    #x_test, y_test = torch.Tensor(x_test).to(device), torch.Tensor(y_test).long().to(device)
+    x_train = torch.Tensor(x_train).to(device)
 
     model = MLP(data_dim=196, hidden_dim=hidden_dim, emb_dim=256, device=device).to(device)
     optimizer = optim.AdamW(model.parameters(), lr=lr)
