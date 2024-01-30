@@ -83,7 +83,7 @@ def main(diffusion_epochs, diffusion_lr, diffusion_hidden_dim, noise_steps,
                 if t%10 == 0:
                     plot_curve('progress_reconstruction_'+diffusion_log_name, blue=train_loss, orange=test_loss, red=adv_loss, ylim=0.05)
         plot_curve('reconstruction_'+diffusion_log_name, blue=train_loss, orange=test_loss, red=adv_loss, ylim=0.1)
-        with open("./reconstruction_"+diffusion_log_name+".logs", 'wb') as file:
+        with open("./results/reconstruction_"+diffusion_log_name+".logs", 'wb') as file:
             pickle.dump((train_loss, test_loss, adv_loss), file)
 
 

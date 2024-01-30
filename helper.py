@@ -4,18 +4,18 @@ import torch
 
 def save_model(log_name, model, logs):
     # Save the model parameters into a file
-    torch.save(model.state_dict(), "./"+log_name+".pytorch")
+    torch.save(model.state_dict(), "./results/"+log_name+".pytorch")
 
     # Save the accuracy and loss logs into a file
-    with open("./"+log_name+".logs", 'wb') as file:
+    with open("./results/"+log_name+".logs", 'wb') as file:
         pickle.dump(logs, file)
 
 def load_model(log_name, model):
     # Load the model parameters from a file
-    model.load_state_dict(torch.load("./"+log_name+".pytorch"))
+    model.load_state_dict(torch.load("./results/"+log_name+".pytorch"))
 
     # Load the accuracy and loss logs from a file
-    with open("./"+log_name+".logs", 'rb') as file:
+    with open("./results/"+log_name+".logs", 'rb') as file:
         logs = pickle.load(file)
     return logs
     
@@ -30,7 +30,7 @@ def plot_curve(log_name, blue=[], orange=[], dotted_blue=[], dotted_orange=[], r
     #plt.xlim([0, len(train_loss)])
     plt.ylim([0, 1.2])
     plt.grid()
-    plt.savefig(log_name+'.pdf',
+    plt.savefig("./results/"+log_name+'.pdf',
                 bbox_inches='tight', 
                 transparent=True,
                 pad_inches=0)
