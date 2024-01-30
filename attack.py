@@ -20,7 +20,6 @@ def fgsm(model, loss, optimizer, epsilon, epsilon_steps, x_test, y_test, log_nam
         device = 'cpu'
     else:
         device = 'cuda'
-    print(device)
 
     # Convert the PyTorch model into an ART classifier
     classifier = PyTorchClassifier(

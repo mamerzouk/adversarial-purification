@@ -50,15 +50,17 @@ class Diffusion:
         model.eval()
         with torch.no_grad():
             #x = torch.randn((n, 3, self.img_size, self.img_size)).to(self.device)
-            for i in tqdm(reversed(range(1, t)), position=0, disable=not progress_bar):
+            for i in tqdm(range(1, t), position=0, disable=not progress_bar):
+                # Instead of using reversed(range(1, t)) in tqdm
+                j = t - i
                 # Make a list of t for each example in x
-                ts = (torch.ones(x.shape[0]) * i).int().to(self.device)
+                ts = (torch.ones(x.shape[0]) * j).int().to(self.device)
                 predicted_noise = model(x, ts)
                 alpha = self.alpha[ts][:, None]
                 alpha_hat = self.alpha_hat[ts][:, None]
                 beta = self.beta[ts][:, None]
                 # We don't need noise for the last iteration
-                if i > 1:
+                if j > 1:
                     noise = torch.randn_like(x)
                 else:
                     noise = torch.zeros_like(x)
