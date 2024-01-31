@@ -147,14 +147,14 @@ def train(model, diffusion, loss_fn, optimizer, x_train, epochs=1000, device='cu
         if progress_plot:
             if (epoch+1)%1000 == 0:
                 plot_curve('progress_'+log_name, blue=train_loss)
-                save_model('progress'+log_name, model, train_loss)
+                save_model('progress_'+log_name, model, train_loss)
 
     return train_loss
 
 
 
 
-def main(noise_steps, lr, epochs, device, hidden_dim, retrain=False):
+def main(noise_steps, lr, epochs, device, hidden_dim, beta_start=1e-4, beta_end=0.02, retrain=False):
     if device=='none':
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -167,15 +167,17 @@ def main(noise_steps, lr, epochs, device, hidden_dim, retrain=False):
     model = MLP(data_dim=196, hidden_dim=hidden_dim, emb_dim=256, device=device).to(device)
     optimizer = optim.AdamW(model.parameters(), lr=lr)
     loss = nn.MSELoss()
-    process = Diffusion(data_size=196, noise_steps=noise_steps, device=device)
+    process = Diffusion(data_size=196, noise_steps=noise_steps, beta_start=beta_start, beta_end=beta_end, device=device)
 
-    log_name = "DIFFUSION_"+str(loss)[:-2]+"_LR_"+str(lr)+"_T_"+str(noise_steps)+"_E_"+str(epochs)+"_H_"+str(10)+"-"+str(hidden_dim)+"_"+device
+    log_name = "DIFFUSION_"+"_T_"+str(noise_steps)+"_B_"+str(beta_start)+"_"+str(beta_end)+str(loss)[:-2]+"_LR_"+str(lr)+"_E_"+str(epochs)+"_H_"+str(10)+"-"+str(hidden_dim)+"_"+device
 
     train_loss=[]
     
     if retrain:
         print("Retraining "+log_name)
         train_loss = load_model(log_name, model)
+    else :
+        print("Training "+log_name)
 
     train_loss = train(model=model, diffusion=process, loss_fn=loss, optimizer=optimizer, x_train=x_train, epochs=epochs, device=device, log_name=log_name, train_loss=train_loss)
 
@@ -195,6 +197,8 @@ if __name__ == "__main__":
     parser.add_argument("-n", "--noise_steps", required=True, default=1000, type=int, help="Noise steps")
     parser.add_argument("-i", "--hidden_dim", required=True, default=1024, type=int, help="Dimension of hidden layer.")
     parser.add_argument("-r", "--retrain", required=False, default=0, type=int, help="Load and retrain model.")
+    parser.add_argument("-bs", "--beta_start", required=True, default=1e-4, type=float, help="Start value for beta")
+    parser.add_argument("-be", "--beta_end", required=True, default=0.02, type=float, help="Start value for beta")
     args = parser.parse_args()
 
-    main(hidden_dim=args.hidden_dim, noise_steps=args.noise_steps, lr=args.learning_rate, epochs=args.epochs, device=args.device, retrain=args.retrain)
+    main(hidden_dim=args.hidden_dim, noise_steps=args.noise_steps, lr=args.learning_rate, epochs=args.epochs, device=args.device, retrain=args.retrain, beta_start=args.beta_start, beta_end=args.beta_end)
