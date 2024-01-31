@@ -20,7 +20,7 @@ def load_model(log_name, model):
     return logs
     
 
-def plot_curve(log_name, blue=[], orange=[], dotted_blue=[], dotted_orange=[], red=[], dotted_red=[], x=None):
+def plot_curve(log_name, blue=[], orange=[], dotted_blue=[], dotted_orange=[], red=[], dotted_red=[], x=None, ylim=1.2):
     plt.plot(red, color='tab:red')
     plt.plot(dotted_red, color='tab:red', linestyle='dashed')
     plt.plot(blue, color='tab:blue')
@@ -28,7 +28,7 @@ def plot_curve(log_name, blue=[], orange=[], dotted_blue=[], dotted_orange=[], r
     plt.plot(orange, color='tab:orange')
     plt.plot(dotted_orange, color='tab:orange', linestyle='dashed')
     #plt.xlim([0, len(train_loss)])
-    plt.ylim([0, 1.2])
+    plt.ylim([0, ylim])
     plt.grid()
     plt.savefig("./results/"+log_name+'.pdf',
                 bbox_inches='tight', 

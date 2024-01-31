@@ -148,7 +148,7 @@ def train(model, diffusion, loss_fn, optimizer, x_train, epochs=1000, device='cu
         pbar.set_postfix(MSE=train_loss[-1])
         if progress_plot:
             if (epoch+1)%1000 == 0:
-                plot_curve('progress_'+log_name, blue=train_loss)
+                plot_curve('progress_'+log_name, blue=train_loss, )
                 save_model('progress'+log_name, model, train_loss)
 
     return train_loss
