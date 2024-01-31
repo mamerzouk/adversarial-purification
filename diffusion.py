@@ -128,10 +128,8 @@ class MLP(nn.Module):
         return self.l11(a10)
     
 
-def train(model, diffusion, loss_fn, optimizer, x_train, epochs=1000, device='cuda', progress_plot=True, log_name=""):
+def train(model, diffusion, loss_fn, optimizer, x_train, epochs=1000, device='cuda', progress_plot=True, log_name="", train_loss=[]):
     pbar = tqdm(range(epochs))
-    train_loss = []
-    test_loss = []
     for epoch in pbar:
         t = diffusion.sample_timesteps(x_train.shape[0]).to(device)
 
@@ -148,7 +146,7 @@ def train(model, diffusion, loss_fn, optimizer, x_train, epochs=1000, device='cu
         pbar.set_postfix(MSE=train_loss[-1])
         if progress_plot:
             if (epoch+1)%1000 == 0:
-                plot_curve('progress_'+log_name, blue=train_loss, )
+                plot_curve('progress_'+log_name, blue=train_loss)
                 save_model('progress'+log_name, model, train_loss)
 
     return train_loss
@@ -159,12 +157,6 @@ def train(model, diffusion, loss_fn, optimizer, x_train, epochs=1000, device='cu
 def main(noise_steps, lr, epochs, device, hidden_dim, retrain=False):
     if device=='none':
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-    print(lr)
-    print(epochs)
-    print(device)
-    print(hidden_dim)
-    print(noise_steps)
 
     x_train, _, _, _, = preprocess_unsw()
     # Convert the data to PyTorch Tensor in the GPU
@@ -179,11 +171,13 @@ def main(noise_steps, lr, epochs, device, hidden_dim, retrain=False):
 
     log_name = "DIFFUSION_"+str(loss)[:-2]+"_LR_"+str(lr)+"_T_"+str(noise_steps)+"_E_"+str(epochs)+"_H_"+str(10)+"-"+str(hidden_dim)+"_"+device
 
+    train_loss=[]
+    
     if retrain:
         print("Retraining "+log_name)
-        _ = load_model(log_name, model)
+        train_loss = load_model(log_name, model)
 
-    train_loss = train(model=model, diffusion=process, loss_fn=loss, optimizer=optimizer, x_train=x_train, epochs=epochs, device=device, log_name=log_name)
+    train_loss = train(model=model, diffusion=process, loss_fn=loss, optimizer=optimizer, x_train=x_train, epochs=epochs, device=device, log_name=log_name, train_loss=train_loss)
 
 
 
