@@ -169,7 +169,7 @@ def main(noise_steps, lr, epochs, device, hidden_dim, beta_start=1e-4, beta_end=
     loss = nn.MSELoss()
     process = Diffusion(data_size=196, noise_steps=noise_steps, beta_start=beta_start, beta_end=beta_end, device=device)
 
-    log_name = "DIFFUSION_"+"_T_"+str(noise_steps)+"_B_"+str(beta_start)+"_"+str(beta_end)+str(loss)[:-2]+"_LR_"+str(lr)+"_E_"+str(epochs)+"_H_"+str(10)+"-"+str(hidden_dim)+"_"+device
+    log_name = "DIFFUSION"+"_T_"+str(noise_steps)+"_B_"+str(beta_start)+"_"+str(beta_end)+"_"+str(loss)[:-2]+"_LR_"+str(lr)+"_E_"+str(epochs)+"_H_"+str(10)+"-"+str(hidden_dim)+"_"+device
 
     train_loss=[]
     
