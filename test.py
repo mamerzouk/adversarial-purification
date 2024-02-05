@@ -19,7 +19,7 @@ from diffusion import MLP, Diffusion
 
 def main(diffusion_epochs, diffusion_lr, diffusion_hidden_dim, noise_steps, 
          epsilon, epsilon_steps, ids_lr, ids_epochs, beta_start, beta_end,
-         device, ids_hidden_dim=None, reconstruction_curve=False, reconstruction_step=9):
+         device, ids_hidden_dim=None, reconstruction_curve=False, reconstruction_step=1):
     if device=='none':
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     ids_hidden_dim = [256, 512, 1024, 512, 256]
@@ -45,7 +45,7 @@ def main(diffusion_epochs, diffusion_lr, diffusion_hidden_dim, noise_steps,
     x_test_adv = torch.Tensor(x_test_adv).to(device)
 
     diffusion_model = MLP(data_dim=196, hidden_dim=diffusion_hidden_dim, emb_dim=256, device=device).to(device)
-    #diffusion_optimizer = optim.AdamW(diffusion_model.parameters(), lr=diffusion_lr)
+    #diffusion_optimizer = optim.AdamW(diffusion_model.parameters(), lr=diffusion_lr) #keep for art
     diffusion_loss = nn.MSELoss()
     diffusion_process = Diffusion(data_size=196, noise_steps=noise_steps, device=device)
 
@@ -107,7 +107,7 @@ def main(diffusion_epochs, diffusion_lr, diffusion_hidden_dim, noise_steps,
         diffusion_model.eval()
         with torch.no_grad():
             ts = torch.ones(x_train.shape[0]).int().to(device) * (t-1)
-            x_t, noise = diffusion_process.noise_data(x_train, ts)
+            x_t, _ = diffusion_process.noise_data(x_train, ts)
             reconstructed_x = diffusion_process.reconstruct(diffusion_model, x_t, t)
             loss = diffusion_loss(x_train, reconstructed_x)
             print("Reconstruction loss on the training set : {}".format(loss.item()))
@@ -115,7 +115,7 @@ def main(diffusion_epochs, diffusion_lr, diffusion_hidden_dim, noise_steps,
             print("Accuracy on the reconstructed training set : {}".format(accuracy(pred, y_train)))
 
             ts = torch.ones(x_test.shape[0]).int().to(device) * (t-1)
-            x_t, noise = diffusion_process.noise_data(x_test, ts)
+            x_t, _ = diffusion_process.noise_data(x_test, ts)
             reconstructed_x = diffusion_process.reconstruct(diffusion_model, x_t, t)
             loss = diffusion_loss(x_test, reconstructed_x)
             print("Reconstruction loss on the testing set : {}".format(loss.item()))
@@ -123,7 +123,7 @@ def main(diffusion_epochs, diffusion_lr, diffusion_hidden_dim, noise_steps,
             print("Accuracy on the reconstructed testing set : {}".format(accuracy(pred, y_test)))
 
             ts = torch.ones(x_test_adv.shape[0]).int().to(device) * (t-1)
-            x_t, noise = diffusion_process.noise_data(x_test_adv, ts)
+            x_t, _ = diffusion_process.noise_data(x_test_adv, ts)
             reconstructed_x = diffusion_process.reconstruct(diffusion_model, x_t, t)
             loss = diffusion_loss(x_test, reconstructed_x)
             print("Reconstruction loss on the adversarial testing set : {}".format(loss.item()))
@@ -145,7 +145,7 @@ if __name__ == "__main__":
     parser.add_argument("-n", "--noise_steps", required=True, default=1000, type=int, help="Noise steps")
     parser.add_argument("-di", "--diffusion_hidden_dim", required=True, default=1024, type=int, help="Dimension of hidden layer.")
     parser.add_argument("-rc", "--reconstruction_curve", required=False, default=0, type=int, help="Reconstruction curve")
-    parser.add_argument("-rs", "--reconstruction_step", required=False, default=9, type=int, help="Reconstruction step")
+    parser.add_argument("-rs", "--reconstruction_step", required=False, default=1, type=int, help="Reconstruction step")
     parser.add_argument("-bs", "--beta_start", required=True, default=1e-4, type=float, help="Start value for beta")
     parser.add_argument("-be", "--beta_end", required=True, default=0.02, type=float, help="Start value for beta")
     args = parser.parse_args()
