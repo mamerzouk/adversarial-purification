@@ -2,6 +2,7 @@ import torch
 from art.attacks.evasion import FastGradientMethod
 from art.estimators.classification import PyTorchClassifier
 from tqdm import tqdm
+import numpy as np
 
 import argparse
 from pathlib import Path
@@ -46,10 +47,9 @@ def fgsm(model, loss, optimizer, epsilon, epsilon_steps, x_test, y_test, log_nam
             epsilon_index.append(epsilon)
 
         pbar.set_postfix(ADV_ACC=test_adv_acc[-1])
+    
+    with open('results/ADV_'+log_name+'.np', 'wb') as file:
+        np.save(file, x_test_adv.cpu().numpy())
 
     plot_curve(log_name='ADV_'+log_name, red=test_adv_acc, x=epsilon_index)
     return x_test_adv
-
-
-    
-
