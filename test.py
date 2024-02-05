@@ -100,7 +100,8 @@ def main(diffusion_epochs, diffusion_lr, diffusion_hidden_dim, noise_steps,
         plot_curve('reconstruction_acc_'+diffusion_log_name, orange=train_acc, blue=test_acc, red=adv_acc, ylim=1)
         with open("./results/reconstruction_"+diffusion_log_name+".logs", 'wb') as file:
             pickle.dump((train_loss, test_loss, adv_loss, train_acc, test_acc, adv_acc), file)
-        print("Maximum accuracy on adversarial data at noise step: {}".format(adv_acc.index(max(adv_acc))))    
+        max_adv_acc_step = adv_acc.index(max(adv_acc))
+        print("Maximum accuracy on adversarial data is {} at noise step {}".format(adv_acc[max_adv_acc_step], max_adv_acc_step))    
     else:  
         t = noise_steps
         diffusion_model.eval()
