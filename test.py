@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torch import optim
+import numpy as np
 
 from tqdm import tqdm
 import pickle
@@ -15,18 +15,17 @@ from data import preprocess_unsw
 from helper import load_model, plot_curve, accuracy
 from ids import IDS
 from diffusion import MLP, Diffusion
-from attack import fgsm
+#from attack import fgsm
 
 def main(diffusion_epochs, diffusion_lr, diffusion_hidden_dim, noise_steps, 
          epsilon, epsilon_steps, ids_lr, ids_epochs, beta_start, beta_end,
-         device, ids_hidden_dim=None, reconstruction_curve=False):
+         device, ids_hidden_dim=None, reconstruction_curve=False, reconstruction_step=9):
     if device=='none':
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     ids_hidden_dim = [256, 512, 1024, 512, 256]
 
     ids_model = IDS(hidden_dim=ids_hidden_dim).to(device)
     ids_loss = nn.CrossEntropyLoss()
-    ids_optimizer = torch.optim.Adam(ids_model.parameters(), lr=ids_lr)
 
     ids_log_name = "IDS_"+str(ids_loss)[:-2]+"_LR_"+str(ids_lr)+"_E_"+str(ids_epochs)+"_H_"+str(ids_hidden_dim).replace(", ", "-")+"_"+device
 
@@ -38,8 +37,11 @@ def main(diffusion_epochs, diffusion_lr, diffusion_hidden_dim, noise_steps,
     print("Loading {} ...".format(ids_log_name))
     _ = load_model(ids_log_name, ids_model)
 
-    print("Generating adversarial examples ...")
-    x_test_adv = fgsm(model=ids_model, loss=ids_loss, optimizer=ids_optimizer, epsilon=epsilon, epsilon_steps=epsilon_steps, x_test=x_test, y_test=y_test, log_name=ids_log_name)
+    print("Loading adversarial examples ...")
+    #x_test_adv = fgsm(model=ids_model, loss=ids_loss, optimizer=ids_optimizer, epsilon=epsilon, epsilon_steps=epsilon_steps, x_test=x_test, y_test=y_test, log_name=ids_log_name)
+    with open('results/ADV_'+ids_log_name+'.np', 'rb') as file:
+        x_test_adv = np.load(file)
+
     x_test_adv = torch.Tensor(x_test_adv).to(device)
 
     diffusion_model = MLP(data_dim=196, hidden_dim=diffusion_hidden_dim, emb_dim=256, device=device).to(device)
@@ -53,78 +55,79 @@ def main(diffusion_epochs, diffusion_lr, diffusion_hidden_dim, noise_steps,
     _ = load_model(diffusion_log_name, diffusion_model)
 
     if reconstruction_curve:
-        train_loss = []
-        test_loss = []
-        adv_loss = []
+        print("Plotting the reconstruction curve ...")
 
-        pbar = tqdm(range(1, noise_steps+1))
+        train_loss = [0]
+        test_loss = [0]
+        adv_loss = [0]
+        train_acc = [accuracy(ids_model(x_train), y_train)]
+        test_acc = [accuracy(ids_model(x_test), y_test)]
+        adv_acc = [accuracy(ids_model(x_test_adv), y_test)]
+
+        pbar = tqdm(range(1, noise_steps+1, reconstruction_step))
         for t in pbar:
             diffusion_model.eval()
             with torch.no_grad():
                 ts = torch.ones(x_train.shape[0]).int().to(device) * (t-1)
-                x_t, noise = diffusion_process.noise_data(x_train, ts)
-                #predicted_noise = diffusion_model(x_t, t)
+                x_t, _ = diffusion_process.noise_data(x_train, ts)
                 reconstructed_x = diffusion_process.reconstruct(diffusion_model, x_t, t, progress_bar=False)
                 loss = diffusion_loss(x_train, reconstructed_x)
                 train_loss.append(loss.item())
+                pred = ids_model(reconstructed_x)
+                train_acc.append(accuracy(pred, y_train))
 
                 ts = torch.ones(x_test.shape[0]).int().to(device) * (t-1)
-                x_t, noise = diffusion_process.noise_data(x_test, ts)
-                #predicted_noise = diffusion_model(x_t, t)
+                x_t, _ = diffusion_process.noise_data(x_test, ts)
                 reconstructed_x = diffusion_process.reconstruct(diffusion_model, x_t, t, progress_bar=False)
                 loss = diffusion_loss(x_test, reconstructed_x)
                 test_loss.append(loss.item())
+                pred = ids_model(reconstructed_x)
+                train_acc.append(accuracy(pred, y_test))
                 
                 ts = torch.ones(x_test_adv.shape[0]).int().to(device) * (t-1)
-                x_t, noise = diffusion_process.noise_data(x_test_adv, ts)
-                #predicted_noise = diffusion_model(x_t, t)
+                x_t, _ = diffusion_process.noise_data(x_test_adv, ts)
                 reconstructed_x = diffusion_process.reconstruct(diffusion_model, x_t, t, progress_bar=False)
                 loss = diffusion_loss(x_test_adv, reconstructed_x)
                 adv_loss.append(loss.item())
+                pred = ids_model(reconstructed_x)
+                adv_acc.append(accuracy(pred, y_test))
 
                 if t%10 == 0:
-                    plot_curve('progress_reconstruction_'+diffusion_log_name, blue=train_loss, orange=test_loss, red=adv_loss, ylim=0.05)
-        plot_curve('reconstruction_'+diffusion_log_name, blue=train_loss, orange=test_loss, red=adv_loss, ylim=0.1)
+                    plot_curve('progress_reconstruction_loss_'+diffusion_log_name, orange=train_loss, blue=test_loss, red=adv_loss, ylim=0.04)
+                    plot_curve('progress_reconstruction_acc_'+diffusion_log_name, orange=train_acc, blue=test_acc, red=adv_acc, ylim=1)
+
+        plot_curve('reconstruction_loss_'+diffusion_log_name, blue=train_loss, orange=test_loss, red=adv_loss, ylim=0.04)
+        plot_curve('reconstruction_acc_'+diffusion_log_name, orange=train_acc, blue=test_acc, red=adv_acc, ylim=1)
         with open("./results/reconstruction_"+diffusion_log_name+".logs", 'wb') as file:
-            pickle.dump((train_loss, test_loss, adv_loss), file)
+            pickle.dump((train_loss, test_loss, adv_loss, train_acc, test_acc, adv_acc), file)
+        print("Maximum accuracy on adversarial data at noise step: {}".format(adv_acc.index(max(adv_acc))))    
+    else:  
+        t = noise_steps
+        diffusion_model.eval()
+        with torch.no_grad():
+            ts = torch.ones(x_train.shape[0]).int().to(device) * (t-1)
+            x_t, noise = diffusion_process.noise_data(x_train, ts)
+            reconstructed_x = diffusion_process.reconstruct(diffusion_model, x_t, t)
+            loss = diffusion_loss(x_train, reconstructed_x)
+            print("Reconstruction loss on the training set : {}".format(loss.item()))
+            pred = ids_model(reconstructed_x)
+            print("Accuracy on the reconstructed training set : {}".format(accuracy(pred, y_train)))
 
+            ts = torch.ones(x_test.shape[0]).int().to(device) * (t-1)
+            x_t, noise = diffusion_process.noise_data(x_test, ts)
+            reconstructed_x = diffusion_process.reconstruct(diffusion_model, x_t, t)
+            loss = diffusion_loss(x_test, reconstructed_x)
+            print("Reconstruction loss on the testing set : {}".format(loss.item()))
+            pred = ids_model(reconstructed_x)
+            print("Accuracy on the reconstructed testing set : {}".format(accuracy(pred, y_test)))
 
-    t = noise_steps
-    diffusion_model.eval()
-    with torch.no_grad():
-        ts = torch.ones(x_train.shape[0]).int().to(device) * (t-1)
-        x_t, noise = diffusion_process.noise_data(x_train, ts)
-        #predicted_noise = diffusion_model(x_t, t)
-        reconstructed_x = diffusion_process.reconstruct(diffusion_model, x_t, t)
-        loss = diffusion_loss(x_train, reconstructed_x)
-        print("Reconstruction loss on the training set : {}".format(loss.item()))
-        pred = ids_model(reconstructed_x)
-        print("Accuracy on the reconstructed training set : {}".format(accuracy(pred, y_train)))
-
-        ts = torch.ones(x_test.shape[0]).int().to(device) * (t-1)
-        x_t, noise = diffusion_process.noise_data(x_test, ts)
-        #predicted_noise = diffusion_model(x_t, t)
-        reconstructed_x = diffusion_process.reconstruct(diffusion_model, x_t, t)
-        loss = diffusion_loss(x_test, reconstructed_x)
-        print("Reconstruction loss on the testing set : {}".format(loss.item()))
-        pred = ids_model(reconstructed_x)
-        print("Accuracy on the reconstructed testing set : {}".format(accuracy(pred, y_test)))
-
-        ts = torch.ones(x_test_adv.shape[0]).int().to(device) * (t-1)
-        x_t, noise = diffusion_process.noise_data(x_test_adv, ts)
-        #predicted_noise = diffusion_model(x_t, t)
-        reconstructed_x = diffusion_process.reconstruct(diffusion_model, x_t, t)
-        loss = diffusion_loss(x_test, reconstructed_x)
-        print("Reconstruction loss on the adversarial testing set : {}".format(loss.item()))
-        pred = ids_model(reconstructed_x)
-        print("Accuracy on the reconstructed adversarial testing set : {}".format(accuracy(pred, y_test)))
-
-
-
-
-
-
-
+            ts = torch.ones(x_test_adv.shape[0]).int().to(device) * (t-1)
+            x_t, noise = diffusion_process.noise_data(x_test_adv, ts)
+            reconstructed_x = diffusion_process.reconstruct(diffusion_model, x_t, t)
+            loss = diffusion_loss(x_test, reconstructed_x)
+            print("Reconstruction loss on the adversarial testing set : {}".format(loss.item()))
+            pred = ids_model(reconstructed_x)
+            print("Accuracy on the reconstructed adversarial testing set : {}".format(accuracy(pred, y_test)))
 
 
 if __name__ == "__main__":
@@ -141,10 +144,11 @@ if __name__ == "__main__":
     parser.add_argument("-n", "--noise_steps", required=True, default=1000, type=int, help="Noise steps")
     parser.add_argument("-di", "--diffusion_hidden_dim", required=True, default=1024, type=int, help="Dimension of hidden layer.")
     parser.add_argument("-rc", "--reconstruction_curve", required=False, default=0, type=int, help="Reconstruction curve")
+    parser.add_argument("-rs", "--reconstruction_step", required=False, default=9, type=int, help="Reconstruction step")
     parser.add_argument("-bs", "--beta_start", required=True, default=1e-4, type=float, help="Start value for beta")
     parser.add_argument("-be", "--beta_end", required=True, default=0.02, type=float, help="Start value for beta")
     args = parser.parse_args()
 
     main(diffusion_epochs=args.diffusion_epochs, diffusion_lr=args.diffusion_learning_rate, diffusion_hidden_dim=args.diffusion_hidden_dim, noise_steps=args.noise_steps,
          epsilon=args.epsilon, epsilon_steps=args.epsilon_steps, ids_lr=args.ids_learning_rate, ids_epochs=args.ids_epochs, device=args.device,
-         reconstruction_curve=args.reconstruction_curve, beta_start=args.beta_start, beta_end=args.beta_end)
+         reconstruction_curve=args.reconstruction_curve, reconstruction_step=args.reconstruction_step, beta_start=args.beta_start, beta_end=args.beta_end)
