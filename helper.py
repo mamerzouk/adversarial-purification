@@ -21,6 +21,7 @@ def load_model(log_name, model):
     
 
 def plot_curve(log_name, blue=[], orange=[], dotted_blue=[], dotted_orange=[], red=[], dotted_red=[], x=None, ylim=1.2):
+    fig = plt.figure()
     plt.plot(red, color='tab:red')
     plt.plot(dotted_red, color='tab:red', linestyle='dashed')
     plt.plot(blue, color='tab:blue')
