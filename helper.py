@@ -1,5 +1,5 @@
-from matplotlib import pyplot as plt
 import pickle
+from matplotlib import pyplot as plt
 import torch
 
 def save_model(log_name, model, logs):
@@ -18,24 +18,37 @@ def load_model(log_name, model):
     with open("./results/"+log_name+".logs", 'rb') as file:
         logs = pickle.load(file)
     return logs
-    
 
-def plot_curve(log_name, blue=[], orange=[], dotted_blue=[], dotted_orange=[], red=[], dotted_red=[], x=None, ylim=1.2):
+def plot_curve(log_name,
+               blue=None,
+               orange=None,
+               dotted_blue=None,
+               dotted_orange=None,
+               red=None,
+               dotted_red=None,
+               ylim=1.2):
     fig = plt.figure()
-    plt.plot(red, color='tab:red')
-    plt.plot(dotted_red, color='tab:red', linestyle='dashed')
-    plt.plot(blue, color='tab:blue')
-    plt.plot(dotted_blue, color='tab:blue', linestyle='dashed')
-    plt.plot(orange, color='tab:orange')
-    plt.plot(dotted_orange, color='tab:orange', linestyle='dashed')
+    if red:
+        plt.plot(red, color='tab:red')
+    if dotted_red:
+        plt.plot(dotted_red, color='tab:red', linestyle='dashed')
+    if blue:
+        plt.plot(blue, color='tab:blue')
+    if dotted_blue:
+        plt.plot(dotted_blue, color='tab:blue', linestyle='dashed')
+    if orange:
+        plt.plot(orange, color='tab:orange')
+    if dotted_orange:
+        plt.plot(dotted_orange, color='tab:orange', linestyle='dashed')
     #plt.xlim([0, len(train_loss)])
     plt.ylim([0, ylim])
     plt.grid()
     plt.savefig("./results/"+log_name+'.pdf',
-                bbox_inches='tight', 
+                bbox_inches='tight',
                 transparent=True,
                 pad_inches=0)
-    
+    fig.close()
+
 
 def accuracy(pred, y):
     return (pred.argmax(dim=1) == y).type(torch.float).sum().item()/pred.shape[0]

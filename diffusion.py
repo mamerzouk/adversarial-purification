@@ -1,23 +1,26 @@
-import torch
-import torch.nn as nn
-from torch import optim
-import torch.nn.functional as F
-
-
-from tqdm import tqdm
-
 import argparse
 from pathlib import Path
 import sys
+
+import torch
+from torch import nn, optim
+
+from tqdm import tqdm
 path_root = Path(__file__).parents[0]
 sys.path.append(str(path_root))
 
 from data import preprocess_unsw
 from helper import save_model, load_model, plot_curve
 
-# Define the diffusion process (inspired by https://github.com/dome272/Diffusion-Models-pytorch (https://www.youtube.com/watch?v=TBCRlnwJtZU) and based on the DDPM paper )
+# Define the diffusion process (inspired by https://github.com/dome272/Diffusion-Models-pytorch
+# (https://www.youtube.com/watch?v=TBCRlnwJtZU) and based on the DDPM paper )
 class Diffusion:
-    def __init__(self, noise_steps=1000, beta_start=1e-4, beta_end=0.02, data_size=64, device="cuda"):
+    def __init__(self,
+                 noise_steps=1000,
+                 beta_start=1e-4,
+                 beta_end=0.02,
+                 data_size=64,
+                 device="cuda"):
         # Set beta, alpha and alpha_hat (cumulative)
         self.noise_steps = noise_steps
         self.beta_start = beta_start
@@ -64,13 +67,14 @@ class Diffusion:
                     noise = torch.randn_like(x)
                 else:
                     noise = torch.zeros_like(x)
-                # We use the predicted noise as the mean of the denoising noise we add to the data (DDPM paper Algorithm 2)
-                x = 1 / torch.sqrt(alpha) * (x - ((1 - alpha) / (torch.sqrt(1 - alpha_hat))) * predicted_noise) + torch.sqrt(beta) * noise
+                # We use the predicted noise as the mean of the denoising noise
+                # we add to the data (DDPM paper Algorithm 2)
+                x = 1 / torch.sqrt(alpha) * \
+                    (x - ((1 - alpha) / (torch.sqrt(1 - alpha_hat))) * predicted_noise) + \
+                    torch.sqrt(beta) * noise
             model.train()
-            #x = (x.clamp(-1, 1) + 1) / 2
-            #x = (x * 255).type(torch.uint8)
             return x
-        
+
 # The neural network that estimates the added noise
 class MLP(nn.Module):
     def __init__(self, data_dim=196, hidden_dim=512, emb_dim=256, device='cuda'):
@@ -126,9 +130,19 @@ class MLP(nn.Module):
         a9 = self.l9(a8) + t
         a10 = self.l10(a9) + t
         return self.l11(a10)
-    
 
-def train(model, diffusion, loss_fn, optimizer, x_train, epochs=1000, device='cuda', progress_plot=True, log_name="", train_loss=[]):
+def train(model,
+          diffusion,
+          loss_fn,
+          optimizer,
+          x_train,
+          epochs=1000,
+          device='cuda',
+          progress_plot=True,
+          log_name="",
+          train_loss=None):
+    if train_loss is None:
+        train_loss = []
     pbar = tqdm(range(epochs))
     for epoch in pbar:
         t = diffusion.sample_timesteps(x_train.shape[0]).to(device)
@@ -154,7 +168,14 @@ def train(model, diffusion, loss_fn, optimizer, x_train, epochs=1000, device='cu
 
 
 
-def main(noise_steps, lr, epochs, device, hidden_dim, beta_start=1e-4, beta_end=0.02, retrain=False):
+def main(noise_steps,
+         lr,
+         epochs,
+         device,
+         hidden_dim,
+         beta_start=1e-4,
+         beta_end=0.02,
+         retrain=False):
     if device=='none':
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -167,19 +188,37 @@ def main(noise_steps, lr, epochs, device, hidden_dim, beta_start=1e-4, beta_end=
     model = MLP(data_dim=196, hidden_dim=hidden_dim, emb_dim=256, device=device).to(device)
     optimizer = optim.AdamW(model.parameters(), lr=lr)
     loss = nn.MSELoss()
-    process = Diffusion(data_size=196, noise_steps=noise_steps, beta_start=beta_start, beta_end=beta_end, device=device)
+    process = Diffusion(data_size=196,
+                        noise_steps=noise_steps,
+                        beta_start=beta_start,
+                        beta_end=beta_end,
+                        device=device)
 
-    log_name = "DIFFUSION"+"_T_"+str(noise_steps)+"_B_"+str(beta_start)+"_"+str(beta_end)+"_"+str(loss)[:-2]+"_LR_"+str(lr)+"_E_"+str(epochs)+"_H_"+str(10)+"-"+str(hidden_dim)+"_"+device
+    log_name = "DIFFUSION" + "_T_" + str(noise_steps) + \
+        "_B_" + str(beta_start) + "_" + str(beta_end) + "_" + \
+        str(loss)[:-2] + \
+        "_LR_" + str(lr) + \
+        "_E_" + str(epochs) + \
+        "_H_" + str(10) + "-" + str(hidden_dim) + \
+        "_" + device
 
     train_loss=[]
-    
+
     if retrain:
         print("Retraining "+log_name)
         train_loss = load_model(log_name, model)
     else :
         print("Training "+log_name)
 
-    train_loss = train(model=model, diffusion=process, loss_fn=loss, optimizer=optimizer, x_train=x_train, epochs=epochs, device=device, log_name=log_name, train_loss=train_loss)
+    train_loss = train(model=model,
+                       diffusion=process,
+                       loss_fn=loss,
+                       optimizer=optimizer,
+                       x_train=x_train,
+                       epochs=epochs,
+                       device=device,
+                       log_name=log_name,
+                       train_loss=train_loss)
 
 
 
@@ -191,14 +230,60 @@ if __name__ == "__main__":
 
     ####----Parameters----####
     parser = argparse.ArgumentParser()
-    parser.add_argument("-d", "--device", required=True, default="none", help="Device: 'cuda' or 'cpu'")
-    parser.add_argument("-e", "--epochs", required=True, default=100, type=int, help="Number of epochs to train the model.")
-    parser.add_argument("-l", "--learning_rate", required=True, default=1e-3, type=float, help="Learning rate")
-    parser.add_argument("-n", "--noise_steps", required=True, default=1000, type=int, help="Noise steps")
-    parser.add_argument("-i", "--hidden_dim", required=True, default=1024, type=int, help="Dimension of hidden layer.")
-    parser.add_argument("-r", "--retrain", required=False, default=0, type=int, help="Load and retrain model.")
-    parser.add_argument("-bs", "--beta_start", required=True, default=1e-4, type=float, help="Start value for beta")
-    parser.add_argument("-be", "--beta_end", required=True, default=0.02, type=float, help="Start value for beta")
+    parser.add_argument("-d",
+                        "--device",
+                        required=True,
+                        default="none",
+                        help="Device: 'cuda' or 'cpu'")
+    parser.add_argument("-e",
+                        "--epochs",
+                        required=True,
+                        default=100,
+                        type=int,
+                        help="Number of epochs to train the model.")
+    parser.add_argument("-l",
+                        "--learning_rate",
+                        required=True,
+                        default=1e-3,
+                        type=float,
+                        help="Learning rate")
+    parser.add_argument("-n",
+                        "--noise_steps",
+                        required=True,
+                        default=1000,
+                        type=int,
+                        help="Noise steps")
+    parser.add_argument("-i",
+                        "--hidden_dim",
+                        required=True,
+                        default=1024,
+                        type=int,
+                        help="Dimension of hidden layer.")
+    parser.add_argument("-r",
+                        "--retrain",
+                        required=False,
+                        default=0,
+                        type=int,
+                        help="Load and retrain model.")
+    parser.add_argument("-bs",
+                        "--beta_start",
+                        required=True,
+                        default=1e-4,
+                        type=float,
+                        help="Start value for beta")
+    parser.add_argument("-be",
+                        "--beta_end",
+                        required=True,
+                        default=0.02,
+                        type=float,
+                        help="Start value for beta")
     args = parser.parse_args()
 
-    main(hidden_dim=args.hidden_dim, noise_steps=args.noise_steps, lr=args.learning_rate, epochs=args.epochs, device=args.device, retrain=args.retrain, beta_start=args.beta_start, beta_end=args.beta_end)
+    main(hidden_dim=args.hidden_dim,
+         noise_steps=args.noise_steps,
+         lr=args.learning_rate,
+         epochs=args.epochs,
+         device=args.device,
+         retrain=args.retrain,
+         beta_start=args.beta_start,
+         beta_end=args.beta_end)
