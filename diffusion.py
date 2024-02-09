@@ -10,7 +10,7 @@ path_root = Path(__file__).parents[0]
 sys.path.append(str(path_root))
 
 from data import preprocess_unsw
-from helper import save_model, load_model, plot_curve
+from helper import save_model, load_model
 
 # Define the diffusion process (inspired by https://github.com/dome272/Diffusion-Models-pytorch
 # (https://www.youtube.com/watch?v=TBCRlnwJtZU) and based on the DDPM paper )
@@ -160,7 +160,6 @@ def train(model,
         pbar.set_postfix(MSE=train_loss[-1])
         if progress_plot:
             if (epoch+1)%1000 == 0:
-                plot_curve('progress_'+log_name, blue=train_loss)
                 save_model('progress_'+log_name, model, train_loss)
 
     return train_loss
@@ -220,11 +219,7 @@ def main(noise_steps,
                        log_name=log_name,
                        train_loss=train_loss)
 
-
-
-
     save_model(log_name, model, train_loss)
-    plot_curve(log_name, train_loss)
 
 if __name__ == "__main__":
 

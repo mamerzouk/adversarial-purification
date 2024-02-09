@@ -19,36 +19,5 @@ def load_model(log_name, model):
         logs = pickle.load(file)
     return logs
 
-def plot_curve(log_name,
-               blue=None,
-               orange=None,
-               dotted_blue=None,
-               dotted_orange=None,
-               red=None,
-               dotted_red=None,
-               ylim=1.2):
-    fig = plt.figure()
-    if red:
-        plt.plot(red, color='tab:red')
-    if dotted_red:
-        plt.plot(dotted_red, color='tab:red', linestyle='dashed')
-    if blue:
-        plt.plot(blue, color='tab:blue')
-    if dotted_blue:
-        plt.plot(dotted_blue, color='tab:blue', linestyle='dashed')
-    if orange:
-        plt.plot(orange, color='tab:orange')
-    if dotted_orange:
-        plt.plot(dotted_orange, color='tab:orange', linestyle='dashed')
-    #plt.xlim([0, len(train_loss)])
-    plt.ylim([0, ylim])
-    plt.grid()
-    plt.savefig("./results/"+log_name+'.pdf',
-                bbox_inches='tight',
-                transparent=True,
-                pad_inches=0)
-    fig.close()
-
-
 def accuracy(pred, y):
     return (pred.argmax(dim=1) == y).type(torch.float).sum().item()/pred.shape[0]

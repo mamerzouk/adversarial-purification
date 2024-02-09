@@ -4,14 +4,14 @@ from art.estimators.classification import PyTorchClassifier
 from tqdm import tqdm
 import numpy as np
 
-import argparse
+import pickle
 from pathlib import Path
 import sys
 path_root = Path(__file__).parents[0]
 sys.path.append(str(path_root))
 
 from data import preprocess_unsw
-from helper import save_model, plot_curve, accuracy
+from helper import save_model, accuracy
 
 def fgsm(model, loss, optimizer, epsilon, epsilon_steps, x_test, y_test, log_name):
     test_adv_acc = []
@@ -50,6 +50,8 @@ def fgsm(model, loss, optimizer, epsilon, epsilon_steps, x_test, y_test, log_nam
     
     with open('results/ADV_'+log_name+'.np', 'wb') as file:
         np.save(file, x_test_adv.cpu().numpy())
+    
+    with open('results/ADV_'+log_name+'.logs', 'wb') as file:
+        pickle.dump(test_adv_acc, file)
 
-    plot_curve(log_name='ADV_'+log_name, red=test_adv_acc, x=epsilon_index)
     return x_test_adv

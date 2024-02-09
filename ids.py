@@ -9,7 +9,7 @@ path_root = Path(__file__).parents[0]
 sys.path.append(str(path_root))
 
 from data import preprocess_unsw
-from helper import save_model, plot_curve, accuracy
+from helper import save_model, accuracy
 
 # Build a neural network for intrusion detection with a variable number of hidden layers and units
 class IDS(torch.nn.Module):
@@ -109,11 +109,6 @@ def main(lr, epochs, device, hidden_dim=None):
 
     logs = (train_acc, train_loss, test_acc, test_loss)
     save_model(log_name, model, logs)
-    plot_curve(log_name,
-               blue=train_acc,
-               dotted_blue=train_loss,
-               orange=test_acc,
-               dotted_orange=test_loss)
 
 if __name__ == "__main__":
 
