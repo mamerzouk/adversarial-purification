@@ -69,9 +69,9 @@ class Diffusion:
                     noise = torch.zeros_like(x)
                 # We use the predicted noise as the mean of the denoising noise
                 # we add to the data (DDPM paper Algorithm 2)
-                x = 1 / torch.sqrt(alpha) * \
+                x = (1 / torch.sqrt(alpha)) * \
                     (x - ((1 - alpha) / (torch.sqrt(1 - alpha_hat))) * predicted_noise) + \
-                    torch.sqrt(beta) * noise
+                    (torch.sqrt(beta) * noise)
             model.train()
             return x
 
