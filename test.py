@@ -11,7 +11,7 @@ path_root = Path(__file__).parents[0]
 sys.path.append(str(path_root))
 
 from data import preprocess_unsw
-from helper import load_model, plot_curve, accuracy
+from helper import load_model, accuracy
 from ids import IDS
 from diffusion import MLP, Diffusion
 
@@ -83,12 +83,17 @@ def main(diffusion_epochs, diffusion_lr, diffusion_hidden_dim, noise_steps,
         train_loss = [0]
         test_loss = [0]
         adv_loss = [0]
+        test_adv_loss = [0]
         train_acc = [accuracy(ids_model.forward(x_train), y_train)]
         test_acc = [accuracy(ids_model.forward(x_test), y_test)]
         adv_acc = [accuracy(ids_model.forward(x_test_adv), y_test)]
 
         pbar = tqdm(range(1, noise_steps+1, reconstruction_step))
         for t in pbar:
+            if t > 100:
+                if t % 100 != 0:
+                    continue
+            
             diffusion_model.eval()
             with torch.no_grad():
                 ts = torch.ones(x_train.shape[0]).int().to(device) * (t-1)
@@ -121,41 +126,24 @@ def main(diffusion_epochs, diffusion_lr, diffusion_hidden_dim, noise_steps,
                                                                 progress_bar=False)
                 loss = diffusion_loss(x_test_adv, reconstructed_x)
                 adv_loss.append(loss.item())
+                loss = diffusion_loss(x_test, reconstructed_x)
+                test_adv_loss.append(loss.item())
                 pred = ids_model.forward(reconstructed_x)
                 adv_acc.append(accuracy(pred, y_test))
 
-                if t%10 == 0:
-                    plot_curve('progress_reconstruction_loss_'+diffusion_log_name,
-                               orange=train_loss,
-                               blue=test_loss,
-                               red=adv_loss,
-                               ylim=0.04)
-                    plot_curve('progress_reconstruction_acc_'+diffusion_log_name,
-                               orange=train_acc,
-                               blue=test_acc,
-                               red=adv_acc,
-                               ylim=1)
-                    with open("./results/progress_reconstruction_"+diffusion_log_name+".logs",
-                              'wb') as file:
-                        pickle.dump((train_loss,
-                                     test_loss,
-                                     adv_loss,
-                                     train_acc,
-                                     test_acc,
-                                     adv_acc), file)
+            if t%10 == 0:
+                with open("./results/progress_reconstruction_"+diffusion_log_name+".logs",
+                            'wb') as file:
+                    pickle.dump((train_loss,
+                                    test_loss,
+                                    adv_loss,
+                                    test_adv_loss,
+                                    train_acc,
+                                    test_acc,
+                                    adv_acc), file)
 
-        plot_curve('reconstruction_loss_'+diffusion_log_name,
-                   orange=train_loss,
-                   blue=test_loss,red=adv_loss,
-                   ylim=0.04)
-
-        plot_curve('reconstruction_acc_'+diffusion_log_name,
-                   orange=train_acc,
-                   blue=test_acc,
-                   red=adv_acc,
-                   ylim=1)
         with open("./results/reconstruction_"+diffusion_log_name+".logs", 'wb') as file:
-            pickle.dump((train_loss, test_loss, adv_loss, train_acc, test_acc, adv_acc), file)
+            pickle.dump((train_loss, test_loss, adv_loss, test_adv_loss, train_acc, test_acc, adv_acc), file)
         max_adv_acc_step = adv_acc.index(max(adv_acc))
         max_adv_acc_beta = beta_start + ((beta_end-beta_start)/noise_steps) * max_adv_acc_step
         print(f"Maximum accuracy on adversarial data is{adv_acc[max_adv_acc_step]}\
