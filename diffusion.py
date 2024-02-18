@@ -9,7 +9,7 @@ from tqdm import tqdm
 path_root = Path(__file__).parents[0]
 sys.path.append(str(path_root))
 
-from data import preprocess_unsw
+from data import preprocess_unsw, preprocess_kdd
 from helper import save_model, load_model
 
 # Define the diffusion process (inspired by https://github.com/dome272/Diffusion-Models-pytorch
@@ -167,7 +167,8 @@ def train(model,
 
 
 
-def main(noise_steps,
+def main(dataset,
+         noise_steps,
          lr,
          epochs,
          device,
@@ -178,22 +179,26 @@ def main(noise_steps,
     if device=='none':
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    x_train, _, _, _, = preprocess_unsw()
+    if dataset == 'UNSW-NB15':
+        x_train, _, _, _, = preprocess_unsw()
+    if dataset == 'NSL-KDD':
+        x_train, _, _, _, = preprocess_kdd()
     # Convert the data to PyTorch Tensor in the GPU
     #x_train, y_train = torch.Tensor(x_train).to(device), torch.Tensor(y_train).long().to(device)
     #x_test, y_test = torch.Tensor(x_test).to(device), torch.Tensor(y_test).long().to(device)
     x_train = torch.Tensor(x_train).to(device)
 
-    model = MLP(data_dim=196, hidden_dim=hidden_dim, emb_dim=256, device=device).to(device)
+    model = MLP(data_dim=x_train.shape[1], hidden_dim=hidden_dim, emb_dim=256, device=device).to(device)
     optimizer = optim.AdamW(model.parameters(), lr=lr)
     loss = nn.MSELoss()
-    process = Diffusion(data_size=196,
+    process = Diffusion(data_size=x_train.shape[1],
                         noise_steps=noise_steps,
                         beta_start=beta_start,
                         beta_end=beta_end,
                         device=device)
 
-    log_name = "DIFFUSION" + "_T_" + str(noise_steps) + \
+    log_name = "DIFFUSION_" + dataset + \
+        "_T_" + str(noise_steps) + \
         "_B_" + str(beta_start) + "_" + str(beta_end) + "_" + \
         str(loss)[:-2] + \
         "_LR_" + str(lr) + \
@@ -272,6 +277,12 @@ if __name__ == "__main__":
                         default=0.02,
                         type=float,
                         help="Start value for beta")
+    parser.add_argument("-ds",
+                        "--dataset",
+                        required=True,
+                        default="UNSW-NB15",
+                        type=str,
+                        help="Dataset")
     args = parser.parse_args()
 
     main(hidden_dim=args.hidden_dim,
@@ -281,4 +292,5 @@ if __name__ == "__main__":
          device=args.device,
          retrain=args.retrain,
          beta_start=args.beta_start,
-         beta_end=args.beta_end)
+         beta_end=args.beta_end,
+         dataset=args.dataset)

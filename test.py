@@ -10,34 +10,37 @@ from tqdm import tqdm
 path_root = Path(__file__).parents[0]
 sys.path.append(str(path_root))
 
-from data import preprocess_unsw
+from data import preprocess_unsw, preprocess_kdd
 from helper import load_model, accuracy
 from ids import IDS
 from diffusion import MLP, Diffusion
 
 
-def main(diffusion_epochs, diffusion_lr, diffusion_hidden_dim, noise_steps,
+def main(dataset, diffusion_epochs, diffusion_lr, diffusion_hidden_dim, noise_steps,
          epsilon, epsilon_steps, ids_lr, ids_epochs, beta_start, beta_end,
          device, ids_hidden_dim=None, reconstruction_curve=False, reconstruction_step=1,
          generate_adversarial=False):
     if device=='none':
-        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    ids_hidden_dim = [256, 512, 1024, 512, 256]
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-    ids_model = IDS(hidden_dim=ids_hidden_dim).to(device)
+    if dataset == 'UNSW-NB15':
+        x_train, y_train, x_test, y_test = preprocess_unsw()
+    if dataset == 'NSL-KDD':
+        x_train, y_train, x_test, y_test = preprocess_kdd()    
+        
+    # Convert the data to PyTorch Tensor in the GPU
+    x_train, y_train = torch.Tensor(x_train).to(device), torch.Tensor(y_train).long().to(device)
+    x_test, y_test = torch.Tensor(x_test).to(device), torch.Tensor(y_test).long().to(device)
+
+    ids_model = IDS(input_dim=x_train.shape[1], hidden_dim=ids_hidden_dim).to(device)
     ids_loss = torch.nn.CrossEntropyLoss()
     ids_optimizer = torch.optim.Adam(ids_model.parameters(), lr=ids_lr)
 
-    ids_log_name = "IDS_" + str(ids_loss)[:-2] + \
+    ids_log_name = "IDS_" + dataset + "_" + str(ids_loss)[:-2] + \
                     "_LR_" + str(ids_lr) + \
                     "_E_" + str(ids_epochs) + \
                     "_H_" + str(ids_hidden_dim).replace(", ", "-") + \
                     "_" + device
-
-    x_train, y_train, x_test, y_test = preprocess_unsw()
-    # Convert the data to PyTorch Tensor in the GPU
-    x_train, y_train = torch.Tensor(x_train).to(device), torch.Tensor(y_train).long().to(device)
-    x_test, y_test = torch.Tensor(x_test).to(device), torch.Tensor(y_test).long().to(device)
 
     print(f"Loading {ids_log_name} ...")
     _ = load_model(ids_log_name, ids_model)
@@ -58,7 +61,7 @@ def main(diffusion_epochs, diffusion_lr, diffusion_hidden_dim, noise_steps,
 
     x_test_adv = torch.Tensor(x_test_adv).to(device)
 
-    diffusion_model = MLP(data_dim=196,
+    diffusion_model = MLP(data_dim=x_train.shape[1],
                           hidden_dim=diffusion_hidden_dim,
                           emb_dim=256,
                           device=device).to(device)
@@ -66,7 +69,7 @@ def main(diffusion_epochs, diffusion_lr, diffusion_hidden_dim, noise_steps,
     diffusion_loss = torch.nn.MSELoss()
     diffusion_process = Diffusion(data_size=196, noise_steps=noise_steps, device=device)
 
-    diffusion_log_name = "DIFFUSION"+"_T_" + str(noise_steps) + \
+    diffusion_log_name = "DIFFUSION_" + dataset + "_T_" + str(noise_steps) + \
                             "_B_" + str(beta_start)+"_" + str(beta_end) + \
                             "_" + str(diffusion_loss)[:-2] + \
                             "_LR_" + str(diffusion_lr) + \
@@ -265,6 +268,19 @@ if __name__ == "__main__":
                         default=0,
                         type=int,
                         help="Generate adversarial examples")
+    parser.add_argument("-ds",
+                        "--dataset",
+                        required=False,
+                        default='UNSW-NB15',
+                        type=str,
+                        help="Dataset")
+    parser.add_argument("-ihd",
+                        "--ids_hidden_dim",
+                        required=True,
+                        default=[],
+                        nargs='+',
+                        type=int,
+                        help="Train and test")
     args = parser.parse_args()
 
     main(diffusion_epochs=args.diffusion_epochs,
@@ -280,4 +296,6 @@ if __name__ == "__main__":
          reconstruction_step=args.reconstruction_step,
          beta_start=args.beta_start,
          beta_end=args.beta_end,
-         generate_adversarial=args.generate_adversarial)
+         generate_adversarial=args.generate_adversarial,
+         dataset=args.dataset,
+         ids_hidden_dim=args.ids_hidden_dim)
