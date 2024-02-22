@@ -14,8 +14,9 @@ from data import preprocess_unsw
 from helper import save_model, accuracy
 
 def fgsm(model, loss, optimizer, epsilon, epsilon_steps, x_test, y_test, log_name):
-    test_adv_acc = []
-    epsilon_index = []
+    with torch.no_grad():
+        test_adv_acc = [accuracy(model(x_test), y_test)]
+        epsilon_index = [0]
 
     if x_test.get_device()==-1:
         device = 'cpu'
@@ -32,7 +33,7 @@ def fgsm(model, loss, optimizer, epsilon, epsilon_steps, x_test, y_test, log_nam
     )
 
     # Test the robustness of the model for different values of epsilon (perturbation amplitude)
-    pbar = tqdm([epsilon*i for i in range(epsilon_steps)])
+    pbar = tqdm([epsilon*i for i in range(1, epsilon_steps)])
     for eps in pbar:
         attack = FastGradientMethod(estimator=classifier,
                                     eps=eps)

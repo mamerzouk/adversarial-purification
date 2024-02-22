@@ -66,7 +66,7 @@ def main(dataset, diffusion_epochs, diffusion_lr, diffusion_hidden_dim, noise_st
     print(f"Loading {diffusion_log_name} ...")
     _ = load_model(diffusion_log_name, diffusion_model)
 
-    for eps in [epsilon*i for i in range(epsilon_steps)]:
+    for eps in [epsilon*i for i in range(1, epsilon_steps)]:
         print(f"Loading adversarial examples with epsilon={eps} ...")
         if generate_adversarial:
             from attack import fgsm
