@@ -45,21 +45,7 @@ def main(dataset, diffusion_epochs, diffusion_lr, diffusion_hidden_dim, noise_st
     print(f"Loading {ids_log_name} ...")
     _ = load_model(ids_log_name, ids_model)
 
-    print("Loading adversarial examples ...")
-    if generate_adversarial:
-        from attack import fgsm
-        x_test_adv = fgsm(model=ids_model,
-                        loss=ids_loss,
-                        optimizer=ids_optimizer,
-                        epsilon=epsilon,
-                        epsilon_steps=epsilon_steps,
-                        x_test=x_test,
-                        y_test=y_test,
-                        log_name=ids_log_name)
-    with open('results/ADV_'+ids_log_name+'.np', 'rb') as file:
-        x_test_adv = np.load(file)
 
-    x_test_adv = torch.Tensor(x_test_adv).to(device)
 
     diffusion_model = MLP(data_dim=x_train.shape[1],
                           hidden_dim=diffusion_hidden_dim,
@@ -80,105 +66,122 @@ def main(dataset, diffusion_epochs, diffusion_lr, diffusion_hidden_dim, noise_st
     print(f"Loading {diffusion_log_name} ...")
     _ = load_model(diffusion_log_name, diffusion_model)
 
-    if reconstruction_curve:
-        print("Plotting the reconstruction curve ...")
+    for eps in [epsilon*i for i in range(epsilon_steps)]:
+        print(f"Loading adversarial examples with epsilon={eps} ...")
+        if generate_adversarial:
+            from attack import fgsm
+            x_test_adv = fgsm(model=ids_model,
+                            loss=ids_loss,
+                            optimizer=ids_optimizer,
+                            epsilon=epsilon,
+                            epsilon_steps=epsilon_steps,
+                            x_test=x_test,
+                            y_test=y_test,
+                            log_name=ids_log_name)
+        else:
+            with open(f'results/ADV_{eps}_'+ids_log_name+'.np', 'rb') as file:
+                x_test_adv = np.load(file)
 
-        train_loss = [0]
-        test_loss = [0]
-        adv_loss = [0]
-        test_adv_loss = [0]
-        train_acc = [accuracy(ids_model.forward(x_train), y_train)]
-        test_acc = [accuracy(ids_model.forward(x_test), y_test)]
-        adv_acc = [accuracy(ids_model.forward(x_test_adv), y_test)]
+        if reconstruction_curve:
+            print("Plotting the reconstruction curve ...")
+            x_test_adv = torch.Tensor(x_test_adv).to(device)
 
-        pbar = tqdm(range(1, noise_steps+1, reconstruction_step))
-        for t in pbar:
-            if t > 100:
-                if t % 100 != 0:
-                    continue
-            
+            train_loss = [0]
+            test_loss = [0]
+            adv_loss = [0]
+            test_adv_loss = [0]
+            train_acc = [accuracy(ids_model.forward(x_train), y_train)]
+            test_acc = [accuracy(ids_model.forward(x_test), y_test)]
+            adv_acc = [accuracy(ids_model.forward(x_test_adv), y_test)]
+
+            pbar = tqdm(range(1, noise_steps+1, reconstruction_step))
+            for t in pbar:
+                if t > 100:
+                    if t % 100 != 0:
+                        continue
+                
+                diffusion_model.eval()
+                with torch.no_grad():
+                    ts = torch.ones(x_train.shape[0]).int().to(device) * (t-1)
+                    x_t, _ = diffusion_process.noise_data(x_train, ts)
+                    reconstructed_x = diffusion_process.reconstruct(diffusion_model,
+                                                                    x_t,
+                                                                    t,
+                                                                    progress_bar=False)
+                    loss = diffusion_loss(x_train, reconstructed_x)
+                    train_loss.append(loss.item())
+                    pred = ids_model.forward(reconstructed_x)
+                    train_acc.append(accuracy(pred, y_train))
+
+                    ts = torch.ones(x_test.shape[0]).int().to(device) * (t-1)
+                    x_t, _ = diffusion_process.noise_data(x_test, ts)
+                    reconstructed_x = diffusion_process.reconstruct(diffusion_model,
+                                                                    x_t,
+                                                                    t,
+                                                                    progress_bar=False)
+                    loss = diffusion_loss(x_test, reconstructed_x)
+                    test_loss.append(loss.item())
+                    pred = ids_model.forward(reconstructed_x)
+                    test_acc.append(accuracy(pred, y_test))
+
+                    ts = torch.ones(x_test_adv.shape[0]).int().to(device) * (t-1)
+                    x_t, _ = diffusion_process.noise_data(x_test_adv, ts)
+                    reconstructed_x = diffusion_process.reconstruct(diffusion_model,
+                                                                    x_t,
+                                                                    t,
+                                                                    progress_bar=False)
+                    loss = diffusion_loss(x_test_adv, reconstructed_x)
+                    adv_loss.append(loss.item())
+                    loss = diffusion_loss(x_test, reconstructed_x)
+                    test_adv_loss.append(loss.item())
+                    pred = ids_model.forward(reconstructed_x)
+                    adv_acc.append(accuracy(pred, y_test))
+
+                if t%10 == 0:
+                    with open(f"./results/progress_reconstruction_ADV_{eps}_"+diffusion_log_name+".logs",
+                                'wb') as file:
+                        pickle.dump((train_loss,
+                                        test_loss,
+                                        adv_loss,
+                                        test_adv_loss,
+                                        train_acc,
+                                        test_acc,
+                                        adv_acc), file)
+
+            with open(f"./results/reconstruction_ADV_{eps}_"+diffusion_log_name+".logs", 'wb') as file:
+                pickle.dump((train_loss, test_loss, adv_loss, test_adv_loss, train_acc, test_acc, adv_acc), file)
+            max_adv_acc_step = adv_acc.index(max(adv_acc))
+            max_adv_acc_beta = beta_start + ((beta_end-beta_start)/noise_steps) * max_adv_acc_step
+            print(f"Maximum accuracy on adversarial data is{adv_acc[max_adv_acc_step]}\
+                at noise step{max_adv_acc_step}\
+                where beta is {max_adv_acc_beta}")
+        else:
+            t = noise_steps
             diffusion_model.eval()
             with torch.no_grad():
                 ts = torch.ones(x_train.shape[0]).int().to(device) * (t-1)
                 x_t, _ = diffusion_process.noise_data(x_train, ts)
-                reconstructed_x = diffusion_process.reconstruct(diffusion_model,
-                                                                x_t,
-                                                                t,
-                                                                progress_bar=False)
+                reconstructed_x = diffusion_process.reconstruct(diffusion_model, x_t, t)
                 loss = diffusion_loss(x_train, reconstructed_x)
-                train_loss.append(loss.item())
+                print(f"Reconstruction loss on the training set : {loss.item()}")
                 pred = ids_model.forward(reconstructed_x)
-                train_acc.append(accuracy(pred, y_train))
+                print(f"Accuracy on the reconstructed training set : {accuracy(pred, y_train)}")
 
                 ts = torch.ones(x_test.shape[0]).int().to(device) * (t-1)
                 x_t, _ = diffusion_process.noise_data(x_test, ts)
-                reconstructed_x = diffusion_process.reconstruct(diffusion_model,
-                                                                x_t,
-                                                                t,
-                                                                progress_bar=False)
+                reconstructed_x = diffusion_process.reconstruct(diffusion_model, x_t, t)
                 loss = diffusion_loss(x_test, reconstructed_x)
-                test_loss.append(loss.item())
+                print(f"Reconstruction loss on the testing set : {loss.item()}")
                 pred = ids_model.forward(reconstructed_x)
-                test_acc.append(accuracy(pred, y_test))
+                print(f"Accuracy on the reconstructed testing set : {accuracy(pred, y_test)}")
 
                 ts = torch.ones(x_test_adv.shape[0]).int().to(device) * (t-1)
                 x_t, _ = diffusion_process.noise_data(x_test_adv, ts)
-                reconstructed_x = diffusion_process.reconstruct(diffusion_model,
-                                                                x_t,
-                                                                t,
-                                                                progress_bar=False)
-                loss = diffusion_loss(x_test_adv, reconstructed_x)
-                adv_loss.append(loss.item())
+                reconstructed_x = diffusion_process.reconstruct(diffusion_model, x_t, t)
                 loss = diffusion_loss(x_test, reconstructed_x)
-                test_adv_loss.append(loss.item())
+                print(f"Reconstruction loss on the adversarial testing set : {loss.item()}")
                 pred = ids_model.forward(reconstructed_x)
-                adv_acc.append(accuracy(pred, y_test))
-
-            if t%10 == 0:
-                with open("./results/progress_reconstruction_"+diffusion_log_name+".logs",
-                            'wb') as file:
-                    pickle.dump((train_loss,
-                                    test_loss,
-                                    adv_loss,
-                                    test_adv_loss,
-                                    train_acc,
-                                    test_acc,
-                                    adv_acc), file)
-
-        with open("./results/reconstruction_"+diffusion_log_name+".logs", 'wb') as file:
-            pickle.dump((train_loss, test_loss, adv_loss, test_adv_loss, train_acc, test_acc, adv_acc), file)
-        max_adv_acc_step = adv_acc.index(max(adv_acc))
-        max_adv_acc_beta = beta_start + ((beta_end-beta_start)/noise_steps) * max_adv_acc_step
-        print(f"Maximum accuracy on adversarial data is{adv_acc[max_adv_acc_step]}\
-              at noise step{max_adv_acc_step}\
-              where variance is {max_adv_acc_beta}")
-    else:
-        t = noise_steps
-        diffusion_model.eval()
-        with torch.no_grad():
-            ts = torch.ones(x_train.shape[0]).int().to(device) * (t-1)
-            x_t, _ = diffusion_process.noise_data(x_train, ts)
-            reconstructed_x = diffusion_process.reconstruct(diffusion_model, x_t, t)
-            loss = diffusion_loss(x_train, reconstructed_x)
-            print(f"Reconstruction loss on the training set : {loss.item()}")
-            pred = ids_model.forward(reconstructed_x)
-            print(f"Accuracy on the reconstructed training set : {accuracy(pred, y_train)}")
-
-            ts = torch.ones(x_test.shape[0]).int().to(device) * (t-1)
-            x_t, _ = diffusion_process.noise_data(x_test, ts)
-            reconstructed_x = diffusion_process.reconstruct(diffusion_model, x_t, t)
-            loss = diffusion_loss(x_test, reconstructed_x)
-            print(f"Reconstruction loss on the testing set : {loss.item()}")
-            pred = ids_model.forward(reconstructed_x)
-            print(f"Accuracy on the reconstructed testing set : {accuracy(pred, y_test)}")
-
-            ts = torch.ones(x_test_adv.shape[0]).int().to(device) * (t-1)
-            x_t, _ = diffusion_process.noise_data(x_test_adv, ts)
-            reconstructed_x = diffusion_process.reconstruct(diffusion_model, x_t, t)
-            loss = diffusion_loss(x_test, reconstructed_x)
-            print(f"Reconstruction loss on the adversarial testing set : {loss.item()}")
-            pred = ids_model.forward(reconstructed_x)
-            print(f"Accuracy on reconstructed adversarial testing set : {accuracy(pred, y_test)}")
+                print(f"Accuracy on reconstructed adversarial testing set : {accuracy(pred, y_test)}")
 
 
 if __name__ == "__main__":
@@ -205,13 +208,13 @@ if __name__ == "__main__":
     parser.add_argument("-s",
                         "--epsilon",
                         required=True,
-                        default=0.001,
+                        default=0.01,
                         type=float,
                         help="Epsilon the adversarial perturbation amplitude.")
     parser.add_argument("-t",
                         "--epsilon_steps",
                         required=True,
-                        default=31,
+                        default=6,
                         type=int,
                         help="Number of steps in epsilon.")
     parser.add_argument("-de",

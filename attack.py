@@ -27,7 +27,7 @@ def fgsm(model, loss, optimizer, epsilon, epsilon_steps, x_test, y_test, log_nam
         model=model,
         loss=loss,
         optimizer=optimizer,
-        input_shape=(196),
+        input_shape=x_test.shape[1],
         nb_classes=2,
     )
 
@@ -35,8 +35,7 @@ def fgsm(model, loss, optimizer, epsilon, epsilon_steps, x_test, y_test, log_nam
     pbar = tqdm([epsilon*i for i in range(epsilon_steps)])
     for eps in pbar:
         attack = FastGradientMethod(estimator=classifier,
-                                    eps=eps,
-                                    batch_size=1024)
+                                    eps=eps)
         # Generate adversarial with FGSM on the testing set (ART works on the CPU)
         x_test_adv = attack.generate(x=x_test.cpu().numpy(), y=y_test.cpu().numpy())
         # Test the model on adversarial data
@@ -47,9 +46,9 @@ def fgsm(model, loss, optimizer, epsilon, epsilon_steps, x_test, y_test, log_nam
             epsilon_index.append(epsilon)
 
         pbar.set_postfix(ADV_ACC=test_adv_acc[-1])
-    
-    with open('results/ADV_'+log_name+'.np', 'wb') as file:
-        np.save(file, x_test_adv.cpu().numpy())
+        if eps > 0:
+            with open(f'results/ADV_{eps}_'+log_name+'.np', 'wb') as file:
+                np.save(file, x_test_adv.cpu().numpy())
     
     with open('results/ADV_'+log_name+'.logs', 'wb') as file:
         pickle.dump(test_adv_acc, file)
