@@ -19,13 +19,11 @@ class Diffusion:
                  noise_steps=1000,
                  beta_start=1e-4,
                  beta_end=0.02,
-                 data_size=64,
                  device="cuda"):
         # Set beta, alpha and alpha_hat (cumulative)
         self.noise_steps = noise_steps
         self.beta_start = beta_start
         self.beta_end = beta_end
-        self.data_size = data_size
         self.device = device
 
         self.beta = self.prepare_noise_schedule().to(device)
@@ -191,8 +189,7 @@ def main(dataset,
     model = MLP(data_dim=x_train.shape[1], hidden_dim=hidden_dim, emb_dim=256, device=device).to(device)
     optimizer = optim.AdamW(model.parameters(), lr=lr)
     loss = nn.MSELoss()
-    process = Diffusion(data_size=x_train.shape[1],
-                        noise_steps=noise_steps,
+    process = Diffusion(noise_steps=noise_steps,
                         beta_start=beta_start,
                         beta_end=beta_end,
                         device=device)

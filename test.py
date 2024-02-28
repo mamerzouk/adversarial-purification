@@ -53,7 +53,7 @@ def main(dataset, diffusion_epochs, diffusion_lr, diffusion_hidden_dim, noise_st
                           device=device).to(device)
     #diffusion_optimizer = optim.AdamW(diffusion_model.parameters(), lr=diffusion_lr) #keep for art
     diffusion_loss = torch.nn.MSELoss()
-    diffusion_process = Diffusion(data_size=196, noise_steps=noise_steps, device=device)
+    diffusion_process = Diffusion(noise_steps=noise_steps, device=device)
 
     diffusion_log_name = "DIFFUSION_" + dataset + "_T_" + str(noise_steps) + \
                             "_B_" + str(beta_start)+"_" + str(beta_end) + \
