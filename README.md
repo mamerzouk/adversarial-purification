@@ -10,7 +10,7 @@ Foutse Khomh<sup>1,2</sup>*
 <sup>2</sup>Polytechnique Montréal
 <sup>3</sup>IRT SystemX
 
-Paper published in the [Proceedings of the 39th Conference on Data and Applications Security and Privacy (DBSec 2025)](https://www.ntnu.edu/web/dbsec2025).
+Paper published in the [Proceedings of the 39th Conference on Data and Applications Security and Privacy (DBSec 2025)](https://link.springer.com/chapter/10.1007/978-3-031-96590-6_19).
 
 ## Overview
 This repository contains the implementation of our research on utilizing diffusion models for adversarial purification in intrusion detection systems. With the increasing sophistication of cyberattacks, conventional machine learning (ML) techniques in intrusion detection have faced significant challenges due to adversarial examples that can mislead models, causing undetected attacks or false alerts. Our work leverages diffusion models to effectively purify adversarial examples, enhancing intrusion detection robustness.
