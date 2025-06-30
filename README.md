@@ -3,13 +3,14 @@
 Erwan Beurier<sup>2,3</sup>;
 Reda Yaich<sup>3</sup>;
 Nora Boulahia-Cuppens<sup>2</sup>;
-Frédéric Cuppens<sup>2</sup>*
+Frédéric Cuppens<sup>2</sup>;
+Foutse Khomh<sup>1,2</sup>*
 
 <sup>1</sup>Mila - Québec AI Institute
 <sup>2</sup>Polytechnique Montréal
 <sup>3</sup>IRT SystemX
 
-Paper Under review for [DBSec 2025](https://www.ntnu.edu/web/dbsec2025).
+Paper published in the [Proceedings of the 39th Conference on Data and Applications Security and Privacy (DBSec 2025)](https://www.ntnu.edu/web/dbsec2025).
 
 ## Overview
 This repository contains the implementation of our research on utilizing diffusion models for adversarial purification in intrusion detection systems. With the increasing sophistication of cyberattacks, conventional machine learning (ML) techniques in intrusion detection have faced significant challenges due to adversarial examples that can mislead models, causing undetected attacks or false alerts. Our work leverages diffusion models to effectively purify adversarial examples, enhancing intrusion detection robustness.
@@ -38,6 +39,7 @@ The performance of our diffusion-based purification method was tested against fi
 ## Acknowledgments
 This work was supported by [Mitacs](https://www.mitacs.ca/) through the Mitacs Accelerate International program and the [CRITiCAL](https://www.critical.polymtl.ca/) chair.
 It was enabled in part by support provided by [Calcul Québec](https://calculquebec.ca/), [Compute Ontario](https://computeontario.ca/), the BC DRI Group, and the [Digital Research Alliance of Canada](https://alliancecan.ca/).
+This work has also received support from the French government through the "France 2030" program, as part of the IRT SystemX Program CYBELIA.
 
 ## License
 This project is licensed under the MIT License.
